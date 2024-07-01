@@ -8,7 +8,9 @@ Created on Thu Jun 25 04:09:59 2020
 from tensorflow.keras.applications.inception_v3 import InceptionV3
 from tensorflow.keras.layers import Flatten, Dense, Dropout, Conv2D, MaxPooling2D
 from tensorflow.keras.models import Model
+from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.regularizers import l2
 import tensorflow as tf
 import os
 import matplotlib.pyplot as plt
@@ -46,18 +48,29 @@ def image_gen_w_aug(train_parent_directory,valid_parent_directory, test_parent_d
 
 def model_output_for_TL (pre_trained_model, last_output):
     
-    x = Conv2D(64,(3,3),activation='relu')(last_output)
+    x = Conv2D(64, (3, 3), activation='relu',kernel_regularizer=l2(0.001))(last_output)
+    x = MaxPooling2D(pool_size=(2, 2), strides=1)(x)
     
-    x = MaxPooling2D(pool_size=(2, 2), strides=2)(x)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same',kernel_regularizer=l2(0.001))(x)
+    x = MaxPooling2D(pool_size=(2, 2), strides=1)(x)
+    
+    x = Conv2D(64, (3, 3), activation='relu', padding='same',kernel_regularizer=l2(0.001))(x)
 
     x = Flatten()(x)
     
-    # Dense hidden layer
-    x = Dense(512, activation='relu')(x)
+    # First Fully Connected Layer
+    x = Dense(512, activation='relu',kernel_regularizer=l2(0.001))(x)
+    x = Dropout(0.5)(x)
+
+    # Second Fully Connected Layer
+    x = Dense(256, activation='relu',kernel_regularizer=l2(0.001))(x)
+    x = Dropout(0.5)(x)
     
-    x = Dropout(0.2)(x)
+    # Third Fully Connected Layer
+    x = Dense(128, activation='relu',kernel_regularizer=l2(0.001))(x)
+    x = Dropout(0.5)(x)
     
-    # Output neuron. 
+    # Output Layer
     x = Dense(3, activation='softmax')(x)
     
     model = Model(pre_trained_model.input, x)
@@ -85,14 +98,19 @@ last_output = last_layer.output
 model_TL = model_output_for_TL(pre_trained_model, last_output)
 model_TL.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
+#early stopping to prevent overfiting
+early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1, mode='min', restore_best_weights=True)
 
 
 history_TL = model_TL.fit(
       train_generator,
-      steps_per_epoch=15,  
-      epochs=40,
+      steps_per_epoch=10,  
+      epochs=50,
       verbose=1,
-      validation_data = validation_generator)
+      validation_data = validation_generator,
+      callbacks=[early_stopping]
+      
+)
 
 
 
@@ -106,7 +124,7 @@ val_loss = history_TL.history['val_loss']
 
 epochs_range = range(len(acc))
 
-plt.figure(figsize=(8, 8))
+plt.figure(figsize=(12, 12))
 plt.subplot(1, 2, 1)
 plt.plot(epochs_range, acc, label='Training Accuracy')
 plt.plot(epochs_range, val_acc, label='Validation Accuracy')
@@ -119,4 +137,6 @@ plt.plot(epochs_range, val_loss, label='Validation Loss')
 plt.legend(loc='upper right')
 plt.title('Training and Validation Loss')
 plt.show()
+
+model_TL.summary()
 
