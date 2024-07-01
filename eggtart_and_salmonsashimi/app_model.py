@@ -6,11 +6,12 @@ Created on Thu Jun 25 04:09:59 2020
 """
 
 from tensorflow.keras.applications.inception_v3 import InceptionV3
-from tensorflow.keras.layers import Flatten, Dense, Dropout
+from tensorflow.keras.layers import Flatten, Dense, Dropout, Conv2D, MaxPooling2D
 from tensorflow.keras.models import Model
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import tensorflow as tf
 import os
+import matplotlib.pyplot as plt
 
 def image_gen_w_aug(train_parent_directory,valid_parent_directory, test_parent_directory):
     
@@ -24,19 +25,19 @@ def image_gen_w_aug(train_parent_directory,valid_parent_directory, test_parent_d
     test_datagen = ImageDataGenerator(rescale=1/255)
     
     train_generator = train_datagen.flow_from_directory(train_parent_directory,
-                                                       target_size = (75,75),
+                                                       target_size = (150, 150),
                                                        batch_size = 214,
                                                        class_mode = 'categorical'
                                                        )
     
     val_generator = train_datagen.flow_from_directory(valid_parent_directory,
-                                                          target_size = (75,75),
+                                                          target_size = (150, 150),
                                                           batch_size = 37,
                                                           class_mode = 'categorical'
                                                           )
     
     test_generator = test_datagen.flow_from_directory(test_parent_directory,
-                                                     target_size=(75,75),
+                                                     target_size=(150, 150),
                                                      batch_size = 37,
                                                      class_mode = 'categorical')
     
@@ -44,11 +45,16 @@ def image_gen_w_aug(train_parent_directory,valid_parent_directory, test_parent_d
 
 
 def model_output_for_TL (pre_trained_model, last_output):
+    
+    x = Conv2D(64,(3,3),activation='relu')(last_output)
+    
+    x = MaxPooling2D(pool_size=(2, 2), strides=2)(x)
 
-    x = Flatten()(last_output)
+    x = Flatten()(x)
     
     # Dense hidden layer
     x = Dense(512, activation='relu')(x)
+    
     x = Dropout(0.2)(x)
     
     # Output neuron. 
@@ -63,9 +69,10 @@ train_dir = os.path.join('./datasets/train')
 test_dir = os.path.join('./datasets/test')
 valid_dir= os.path.join('./datasets/valid')
 
+
 train_generator, validation_generator, test_generator = image_gen_w_aug(train_dir,valid_dir,test_dir)
 
-pre_trained_model = InceptionV3(input_shape = (75, 75, 3), 
+pre_trained_model = InceptionV3(input_shape = (150, 150, 3), 
                                 include_top = False, 
                                 weights = 'imagenet')
 
@@ -78,12 +85,38 @@ last_output = last_layer.output
 model_TL = model_output_for_TL(pre_trained_model, last_output)
 model_TL.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
+
+
 history_TL = model_TL.fit(
       train_generator,
-      steps_per_epoch=10,  
-      epochs=5,
+      steps_per_epoch=15,  
+      epochs=40,
       verbose=1,
       validation_data = validation_generator)
 
+
+
 tf.keras.models.save_model(model_TL,'my_model.hdf5')
+
+# Plotting the loss and accuracy
+acc = history_TL.history['accuracy']
+val_acc = history_TL.history['val_accuracy']
+loss = history_TL.history['loss']
+val_loss = history_TL.history['val_loss']
+
+epochs_range = range(len(acc))
+
+plt.figure(figsize=(8, 8))
+plt.subplot(1, 2, 1)
+plt.plot(epochs_range, acc, label='Training Accuracy')
+plt.plot(epochs_range, val_acc, label='Validation Accuracy')
+plt.legend(loc='lower right')
+plt.title('Training and Validation Accuracy')
+
+plt.subplot(1, 2, 2)
+plt.plot(epochs_range, loss, label='Training Loss')
+plt.plot(epochs_range, val_loss, label='Validation Loss')
+plt.legend(loc='upper right')
+plt.title('Training and Validation Loss')
+plt.show()
 
