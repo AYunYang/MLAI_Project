@@ -17,14 +17,14 @@ def import_and_predict(image_data, model):
         
         return prediction
 
-model = tf.keras.models.load_model('C:/Python/rps/my_model.hdf5') #loading a trained model
+model = tf.keras.models.load_model('my_model.hdf5') #loading a trained model
 
 st.write("""
-         # Rock-Paper-Scissor Hand Sign Prediction
+         # egg tart salmon sashimi Hand Sign Prediction
          """
          )
 
-st.write("This is a simple image classification web app to predict rock-paper-scissor hand sign")
+st.write("This is a simple image classification web app to predict eggtart-salmonsashimi hand sign")
 
 file = st.file_uploader("Please upload an image file", type=["jpg", "png"])
 #
@@ -36,11 +36,10 @@ else:
     prediction = import_and_predict(image, model)
     
     if np.argmax(prediction) == 0:
-        st.write("It is a paper!")
+        st.write("It is a egg tart!")
     elif np.argmax(prediction) == 1:
-        st.write("It is a rock!")
+        st.write("It is a salmon sashimi!")
     else:
-        st.write("It is a scissor!")
-    
-    st.text("Probability (0: Paper, 1: Rock, 2: Scissor)")
+        st.write("It is unkown!")
+
     st.write(prediction)
