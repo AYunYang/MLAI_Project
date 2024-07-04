@@ -1,148 +1,145 @@
-
-from tensorflow.keras.applications.inception_v3 import InceptionV3
-from tensorflow.keras.layers import Flatten, Dense, Dropout, Conv2D, MaxPooling2D
-from tensorflow.keras.models import Model
-from tensorflow.keras.callbacks import EarlyStopping ,ReduceLROnPlateau
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.regularizers import l2
-import tensorflow as tf
 import os
 import matplotlib.pyplot as plt
-import time 
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout ,BatchNormalization
 
-def image_gen_w_aug(train_parent_directory, valid_parent_directory, test_parent_directory):
-    train_datagen = ImageDataGenerator(rescale=1/255,
-                                       rotation_range=30,  
-                                       zoom_range=0.2, 
-                                       width_shift_range=0.1,  
-                                       height_shift_range=0.1,
-                                       horizontal_flip=True)
-    
-    test_datagen = ImageDataGenerator(rescale=1/255)
-    val_datagen = ImageDataGenerator(rescale=1/255)
-    
-    train_generator = train_datagen.flow_from_directory(train_parent_directory,
-                                                        target_size=image_size,
-                                                        batch_size=batch_size,
-                                                        class_mode='categorical')
-    
-    val_generator = val_datagen.flow_from_directory(valid_parent_directory,
-                                                    target_size=image_size,
-                                                    batch_size=batch_size,
-                                                    class_mode='categorical')
-    
-    test_generator = test_datagen.flow_from_directory(test_parent_directory,
-                                                      target_size=image_size,
-                                                      batch_size=batch_size,
-                                                      class_mode='categorical')
-    
-    return train_generator, val_generator, test_generator
-
-def model_output_for_TL(pre_trained_model, last_output):
-    x = Conv2D(16, (3, 3), activation='relu')(last_output)
-    x = MaxPooling2D(pool_size=(2, 2), strides=1)(x)
-    
-    x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
-    x = MaxPooling2D(pool_size=(2, 2), strides=1)(x)
-    
-    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
-    x = MaxPooling2D(pool_size=(2, 2), strides=1)(x)
-    
-    x = Flatten()(x)
-
-    # Output Layer
-    x = Dense(3, activation='softmax',kernel_regularizer=l2(l2_reg))(x)
-    
-    model = Model(pre_trained_model.input, x)
-    
-    return model
-
-train_dir = os.path.join('./datasets/train')
-test_dir = os.path.join('./datasets/test')
-valid_dir = os.path.join('./datasets/validation')
-
-image_size = (150, 150)
-batch_size = 64
-epoch = 100
-learning_rate = 1e-4
-l2_reg = 0.001
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+import time
 
 
-train_generator, validation_generator, test_generator = image_gen_w_aug(train_dir, valid_dir, test_dir)
+# Variables
+IMAGE_SIZE = (150,150)
+BATCH_SIZE = 64
+EPOCHS = 50
+LEARNING_RATE = 0.001
 
-pre_trained_model = InceptionV3(input_shape=(150, 150, 3), 
-                                include_top=False, 
-                                weights='imagenet')
-
-for layer in pre_trained_model.layers:
-    layer.trainable = False
-
-last_layer = pre_trained_model.get_layer('mixed7')
-last_output = last_layer.output
-
-model_TL = model_output_for_TL(pre_trained_model, last_output)
-model_TL.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate), 
-                 loss='categorical_crossentropy', 
-                 metrics=['accuracy'])
-
-step_per_epoch = train_generator.samples // train_generator.batch_size
-
-# early stopping to prevent overfitting
-early_stopping = EarlyStopping(monitor='val_loss', patience=7, verbose=1, mode='min', restore_best_weights=True)
-lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor = 0.5, patience = 3 , min_lr=1e-7)
-# start time
-start_time = time.time()
-
-# training model
-history_TL = model_TL.fit(
-    train_generator,
-    steps_per_epoch=step_per_epoch,  
-    epochs=epoch,
-    verbose=1,
-    validation_data=validation_generator,
-    callbacks=[lr_scheduler,early_stopping]
+# Data augmentation for training data
+train_datagen = ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=20,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True,
+    fill_mode='nearest'
 )
 
-# end time
-end_time = time.time()
+# Rescale only for validation and test data
+validation_datagen = ImageDataGenerator(rescale=1./255)
+test_datagen = ImageDataGenerator(rescale=1./255)
 
+# Load dataset from folders
+dataset_path = "datasets"
+classes = ['eggtart', 'salmonsashimi', 'unknown']
+
+train_generator = train_datagen.flow_from_directory(
+    os.path.join(dataset_path, 'train'),
+    target_size=IMAGE_SIZE,
+    batch_size=BATCH_SIZE,
+    class_mode='categorical'
+)
+
+validation_generator = validation_datagen.flow_from_directory(
+    os.path.join(dataset_path, 'validation'),
+    target_size=IMAGE_SIZE,
+    batch_size=BATCH_SIZE,
+    class_mode='categorical'
+)
+
+test_generator = test_datagen.flow_from_directory(
+    os.path.join(dataset_path, 'test'),
+    target_size=IMAGE_SIZE,
+    batch_size=BATCH_SIZE,
+    class_mode='categorical'
+)
+
+# Calculate steps per epoch
+steps_per_epoch = train_generator.samples // BATCH_SIZE
+
+model = Sequential([
+        Conv2D(16, (3, 3), activation='relu', input_shape=(150,150, 3)),
+        BatchNormalization(),
+        MaxPooling2D((2, 2)),
+        
+        Conv2D(32, (3, 3), activation='relu'),
+        BatchNormalization(),
+        MaxPooling2D((2, 2)),
+        
+        Conv2D(64, (3, 3), activation='relu'),
+        BatchNormalization(),
+        MaxPooling2D((2, 2)),
+        
+        Flatten(),
+        
+        Dense(128, activation='relu'),
+        Dropout(0.5),
+        
+        # last dense layer
+        Dense(len(classes), activation='softmax')
+    ])
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+    
+    
+
+# Early stopping to prevent overfitting
+early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1, mode='min', restore_best_weights=True)
+
+# Learning rate scheduler
+lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-7)
+
+# Start time
+start_time = time.time()
+
+model.summary()
+
+# Train the model
+history = model.fit(train_generator,
+                    epochs=EPOCHS, 
+                    validation_data=validation_generator, 
+                    callbacks=[early_stopping, lr_scheduler])
+
+# end Time
+end_time = time.time()
+# duration 
 duration = end_time - start_time
+
 # Convert duration to minutes and seconds
 duration_min, duration_sec = divmod(duration, 60)
 print(f'Total time taken to train the model: {int(duration_min)} minutes and {int(duration_sec)} seconds')
 
-
-
-tf.keras.models.save_model(model_TL, 'my_model.hdf5')
-
-# Evaluate on test set
-test_loss, test_acc = model_TL.evaluate(test_generator, verbose=1)
-print(f"Test Accuracy: {test_acc}")
-print(f"Test Loss: {test_loss}")
-
-
-# Plot the accuracy
-plt.figure()
-
-# Accuracy Plot
-plt.plot(history_TL.history['accuracy'], label='Training Accuracy')
-plt.plot(history_TL.history['val_accuracy'], label='Validation Accuracy')
-plt.title('Model_Accuracy')
+# Plot training and validation accuracy
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
-plt.xlabel('Epoch')
 plt.legend()
-
-# Plot the loss
-plt.figure()
-
-# Loss Plot
-plt.plot(history_TL.history['loss'], label='Training Loss')
-plt.plot(history_TL.history['val_loss'], label='Validation Loss')
-plt.title('Model_Loss')
-plt.ylabel('Loss')
-plt.xlabel('Epoch')
-plt.legend()
-
 plt.show()
 
+# Plot training and validation loss
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
 
+# Print out the final accuracy values
+print(f"Final Training Accuracy: {history.history['accuracy'][-1]:.4f}")
+print(f"Final Validation Accuracy: {history.history['val_accuracy'][-1]:.4f}")
+
+# Print out the final loss values
+print(f"Final Training Loss: {history.history['loss'][-1]:.4f}")
+print(f"Final Validation Loss: {history.history['val_loss'][-1]:.4f}")
+
+# Evaluate the model on the test set
+test_loss, test_acc = model.evaluate(test_generator)
+print(f'Test Accuracy: {test_acc * 100:.2f}%')
+print(f'Test Loss: {test_loss:.4f}')
+
+# Save the model
+model.save('my_model.h5')

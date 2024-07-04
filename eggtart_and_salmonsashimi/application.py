@@ -40,6 +40,6 @@ else:
     elif np.argmax(prediction) == 1:
         st.write("It is a salmon sashimi!")
     else:
-        st.write("It is unkown!")
+        st.write("It is unknown!")
 
     st.write(prediction)
