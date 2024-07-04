@@ -15,7 +15,8 @@ def image_gen_w_aug(train_parent_directory, valid_parent_directory, test_parent_
                                        rotation_range=30,  
                                        zoom_range=0.2, 
                                        width_shift_range=0.1,  
-                                       height_shift_range=0.1)
+                                       height_shift_range=0.1,
+                                       horizontal_flip=True)
     
     test_datagen = ImageDataGenerator(rescale=1/255)
     val_datagen = ImageDataGenerator(rescale=1/255)
@@ -44,20 +45,11 @@ def model_output_for_TL(pre_trained_model, last_output):
     x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
     x = MaxPooling2D(pool_size=(2, 2), strides=1)(x)
     
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = MaxPooling2D(pool_size=(2, 2), strides=1)(x)
+    
     x = Flatten()(x)
-    
-    # # First Fully Connected Layer
-    # x = Dense(512, activation='relu', kernel_regularizer=l2(0.001))(x)
-    # x = Dropout(0.5)(x)
 
-    # # Second Fully Connected Layer
-    # x = Dense(256, activation='relu', kernel_regularizer=l2(0.001))(x)
-    # x = Dropout(0.5)(x)
-    
-    # # Third Fully Connected Layer
-    # x = Dense(128, activation='relu', kernel_regularizer=l2(0.001))(x)
-    # x = Dropout(0.5)(x)
-    
     # Output Layer
     x = Dense(3, activation='softmax',kernel_regularizer=l2(l2_reg))(x)
     
@@ -67,12 +59,11 @@ def model_output_for_TL(pre_trained_model, last_output):
 
 train_dir = os.path.join('./datasets/train')
 test_dir = os.path.join('./datasets/test')
-valid_dir = os.path.join('./datasets/valid')
+valid_dir = os.path.join('./datasets/validation')
 
 image_size = (150, 150)
 batch_size = 64
-epoch = 50
-
+epoch = 100
 learning_rate = 1e-4
 l2_reg = 0.001
 
@@ -94,10 +85,10 @@ model_TL.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
                  loss='categorical_crossentropy', 
                  metrics=['accuracy'])
 
-steps_size = train_generator.samples // train_generator.batch_size
+step_per_epoch = train_generator.samples // train_generator.batch_size
 
 # early stopping to prevent overfitting
-early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=1, mode='min', restore_best_weights=True)
+early_stopping = EarlyStopping(monitor='val_loss', patience=7, verbose=1, mode='min', restore_best_weights=True)
 lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor = 0.5, patience = 3 , min_lr=1e-7)
 # start time
 start_time = time.time()
@@ -105,7 +96,7 @@ start_time = time.time()
 # training model
 history_TL = model_TL.fit(
     train_generator,
-    steps_per_epoch=steps_size,  
+    steps_per_epoch=step_per_epoch,  
     epochs=epoch,
     verbose=1,
     validation_data=validation_generator,
@@ -114,11 +105,21 @@ history_TL = model_TL.fit(
 
 # end time
 end_time = time.time()
-duration = end_time - start_time
 
-print('Total time taken to train the model: ' + str(duration))
+duration = end_time - start_time
+# Convert duration to minutes and seconds
+duration_min, duration_sec = divmod(duration, 60)
+print(f'Total time taken to train the model: {int(duration_min)} minutes and {int(duration_sec)} seconds')
+
+
 
 tf.keras.models.save_model(model_TL, 'my_model.hdf5')
+
+# Evaluate on test set
+test_loss, test_acc = model_TL.evaluate(test_generator, verbose=1)
+print(f"Test Accuracy: {test_acc}")
+print(f"Test Loss: {test_loss}")
+
 
 # Plot the accuracy
 plt.figure()
@@ -126,7 +127,7 @@ plt.figure()
 # Accuracy Plot
 plt.plot(history_TL.history['accuracy'], label='Training Accuracy')
 plt.plot(history_TL.history['val_accuracy'], label='Validation Accuracy')
-plt.title('Model Accuracy')
+plt.title('Model_Accuracy')
 plt.ylabel('Accuracy')
 plt.xlabel('Epoch')
 plt.legend()
@@ -137,7 +138,7 @@ plt.figure()
 # Loss Plot
 plt.plot(history_TL.history['loss'], label='Training Loss')
 plt.plot(history_TL.history['val_loss'], label='Validation Loss')
-plt.title('Model Loss')
+plt.title('Model_Loss')
 plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend()
