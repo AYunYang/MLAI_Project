@@ -5,8 +5,8 @@ from PIL import Image, ImageOps
 
 def import_and_predict(image_data, model):
     
-        size = (75,75)    
-        image = ImageOps.fit(image_data, size, Image.ANTIALIAS)
+        size = (150,150)    
+        image = ImageOps.fit(image_data, size, Image.Resampling.LANCZOS)
         image = image.convert('RGB')
         image = np.asarray(image)
         image = (image.astype(np.float32) / 255.0)
@@ -17,7 +17,7 @@ def import_and_predict(image_data, model):
         
         return prediction
 
-model = tf.keras.models.load_model('my_model.hdf5') #loading a trained model
+model = tf.keras.models.load_model('C:/Users/Yun Yang/Downloads/my_model.h5') #loading a trained model
 
 st.write("""
          # egg tart salmon sashimi Hand Sign Prediction
@@ -27,6 +27,8 @@ st.write("""
 st.write("This is a simple image classification web app to predict eggtart-salmonsashimi hand sign")
 
 file = st.file_uploader("Please upload an image file", type=["jpg", "png"])
+
+st.write("0 for egg tart, 1 for salmon sashimi, 2 for unknown")
 #
 if file is None:
     st.text("You haven't uploaded an image file")
