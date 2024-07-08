@@ -17,14 +17,14 @@ def import_and_predict(image_data, model):
         
         return prediction
 
-model = tf.keras.models.load_model('C:/Users/Yun Yang/Downloads/my_model.h5') #loading a trained model
+model = tf.keras.models.load_model('my_model.h5') #loading a trained model
 
 st.write("""
          # egg tart salmon sashimi Hand Sign Prediction
          """
          )
 
-st.write("This is a simple image classification web app to predict eggtart-salmonsashimi hand sign")
+st.write("This is a simple image classification web app to predict eggtart-salmonsashimi and unknowns")
 
 file = st.file_uploader("Please upload an image file", type=["jpg", "png"])
 
