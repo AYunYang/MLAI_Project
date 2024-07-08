@@ -14,7 +14,7 @@ frame = None
 
 def import_and_predict(image_data, model):
     
-        size = (75,75)    
+        size = (150,150)    
         image = ImageOps.fit(image_data, size, Image.ANTIALIAS)
         image = image.convert('RGB')
         image = np.asarray(image)
@@ -26,7 +26,7 @@ def import_and_predict(image_data, model):
         
         return prediction
 
-model = tf.keras.models.load_model('C:/Python/rps/my_model.hdf5')
+model = tf.keras.models.load_model('my_model.h5')
 
     
 cap = cv2.VideoCapture(0)
@@ -49,11 +49,11 @@ while (True):
     #print(prediction)
 
     if np.argmax(prediction) == 0:
-        predict="It is a paper!"
+        predict="It is a Eggtart!"
     elif np.argmax(prediction) == 1:
-        predict="It is a rock!"
+        predict="It is a Salmon Sashimi!"
     else:
-        predict="It is a scissor!"
+        predict="Unknown!"
     
     cv2.putText(original, predict, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
     cv2.imshow("Classification", original)
