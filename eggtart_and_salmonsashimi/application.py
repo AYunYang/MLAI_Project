@@ -5,7 +5,7 @@ from PIL import Image, ImageOps
 
 def import_and_predict(image_data, model):
     
-        size = (150,150)    
+        size = (75,75)    
         image = ImageOps.fit(image_data, size, Image.Resampling.LANCZOS)
         image = image.convert('RGB')
         image = np.asarray(image)
