@@ -14,7 +14,7 @@ frame = None
 
 def import_and_predict(image_data, model):
     
-        size = (75,75)    
+        size = (150,150)    
         image = ImageOps.fit(image_data, size, Image.Resampling.LANCZOS)
         image = image.convert('RGB')
         image = np.asarray(image)
