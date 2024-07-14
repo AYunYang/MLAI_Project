@@ -28,8 +28,11 @@ def import_and_predict(image_data, model):
 
 model = tf.keras.models.load_model('my_model.h5')
 
-    
+    #For Laptop camera
 cap = cv2.VideoCapture(0)
+    
+    #For android phone
+#cap = cv2.VideoCapture('https://192.168.10.111:8080/video')
 
 if (cap.isOpened()):
     print("Camera OK")
